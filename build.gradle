@@ -1,0 +1,54 @@
+apply plugin: 'java'
+
+group 'me.mneri.sk'
+sourceCompatibility = 1.8
+sourceSets.main.java.srcDir 'src/gen/java'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    flatDir name: 'lib', dirs: 'lib'
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    compile name: 'lambda-1.0-SNAPSHOT'
+    compile group: 'org.antlr', name: 'antlr4-runtime', version: '4.7.1'
+    compile group: 'commons-cli', name: 'commons-cli', version: '1.2'
+}
+
+task buildAntlrFiles(type: Exec) {
+    description 'Build Antlr grammar into Java sources.'
+    group 'build'
+
+    inputs.files 'src/main/antlr/Sk.g'
+    commandLine 'java', '-jar', 'lib/antlr-4.7.1-complete.jar', '-lib', 'src/main/antlr', '-o', 'src/gen/java', '-no-listener', '-package', 'me.mneri.sk', 'src/main/antlr/Sk.g'
+
+    doLast {
+        mkdir 'src/gen/java/me/mneri/sk'
+        ant.move file: 'src/gen/java/src/main/antlr/SkLexer.java', todir: "src/gen/java/me/mneri/sk"
+        ant.move file: 'src/gen/java/src/main/antlr/SkParser.java', todir: "src/gen/java/me/mneri/sk"
+        delete 'src/gen/java/src'
+    }
+}
+
+task cleanAntlrFiles(type: Delete) {
+    description 'Clean generated Antlr files.'
+    group 'build'
+    delete 'src/gen'
+}
+
+clean {
+    dependsOn cleanAntlrFiles
+}
+
+compileJava {
+    dependsOn buildAntlrFiles
+}
+
+jar {
+    from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    manifest {
+        attributes('Main-Class': 'me.mneri.sk.Cli')
+    }
+}
